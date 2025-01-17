@@ -1,0 +1,56 @@
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      String   @default("student") // Puedes usar enums si prefieres
+
+  // Relación con los grupos a los que el usuario pertenece como estudiante
+  classGroups ClassGroup[] @relation("StudentClassGroups")
+
+  // Relación con el grupo que el usuario enseña (si es profesor)
+  teachingGroup ClassGroup? @relation("TeacherClassGroup")
+
+  // Relación con las asistencias
+  attendances Attendance[]
+}
+
+model ClassGroup {
+  id                String       @id @default(uuid())
+  name              String
+  accessCode        String       @unique
+  schedule          String
+  teacherId         String?      @unique
+  teacher           User?        @relation("TeacherClassGroup", fields: [teacherId], references: [id])
+  students          User[]       @relation("StudentClassGroups")
+  attendances       Attendance[]
+  attendanceEnabled Boolean      @default(false) // Nuevo campo
+  attendanceEndsAt  DateTime? // Nuevo campo para la duración de la asistencia
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Attendance {
+  id           String   @id @default(uuid())
+  userId       String
+  classGroupId String
+  attendedAt   DateTime @default(now())
+  status       String // Ejemplo: "Present" o "Absent"
+
+  // Relación con el usuario que asistió
+  user User @relation(fields: [userId], references: [id])
+
+  // Relación con el grupo al que pertenece esta asistencia
+  classGroup ClassGroup @relation(fields: [classGroupId], references: [id])
+}
