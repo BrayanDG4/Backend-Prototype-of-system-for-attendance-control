@@ -6,9 +6,16 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UserModule } from './modules/user/user.module';
 import { ClassGroupModule } from './modules/class-group/class-group.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { StatisticsModule } from './modules/statistics/statistics.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, ClassGroupModule, AttendanceModule],
+  imports: [
+    PrismaModule,
+    UserModule,
+    ClassGroupModule,
+    AttendanceModule,
+    StatisticsModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
