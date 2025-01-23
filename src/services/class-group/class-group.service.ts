@@ -12,10 +12,10 @@ export class ClassGroupService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createClassGroup(data: any) {
-    const { teacherId, ...groupData } = data;
+    const { teacherId, schedule, accessCode, ...groupData } = data;
 
     try {
-      // Validar que el profesor exista y tenga el rol correcto
+      // Validar que el profesor exista
       const teacher = await this.prisma.user.findUnique({
         where: { id: teacherId },
       });
@@ -24,10 +24,36 @@ export class ClassGroupService {
         throw new NotFoundException('Profesor no encontrado o no válido.');
       }
 
+      // Verificar si el código de acceso ya existe
+      const existingGroup = await this.prisma.classGroup.findUnique({
+        where: { accessCode },
+      });
+
+      if (existingGroup) {
+        throw new ConflictException('El código de acceso ya está en uso.');
+      }
+
+      // Validar y serializar el campo schedule
+      let serializedSchedule: string;
+      if (Array.isArray(schedule)) {
+        // Serializar el array de schedule
+        serializedSchedule = JSON.stringify(schedule);
+      } else if (this.isValidJSON(schedule)) {
+        // Aceptar schedule si ya es un JSON válido
+        serializedSchedule = schedule;
+      } else {
+        // Manejar casos donde schedule es inválido o nulo
+        throw new BadRequestException(
+          'El formato del horario (schedule) no es válido.',
+        );
+      }
+
       // Crear el grupo de clase
       return await this.prisma.classGroup.create({
         data: {
           ...groupData,
+          schedule: serializedSchedule,
+          accessCode,
           teacher: { connect: { id: teacherId } },
         },
       });
@@ -39,11 +65,37 @@ export class ClassGroupService {
     }
   }
 
-  async getClassGroups() {
+  // Método auxiliar para validar JSON
+  private isValidJSON(value: string): boolean {
     try {
-      return await this.prisma.classGroup.findMany({
+      JSON.parse(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getClassGroups(skip: number, take: number) {
+    try {
+      // Obtener los grupos con paginación
+      const groups = await this.prisma.classGroup.findMany({
+        skip,
+        take,
         include: { teacher: true },
       });
+
+      // Contar el total de registros
+      const total = await this.prisma.classGroup.count();
+
+      // Validar y deserializar el campo schedule
+      const formattedGroups = groups.map((group) => ({
+        ...group,
+        schedule: this.isValidJSON(group.schedule)
+          ? JSON.parse(group.schedule)
+          : [{ day: 'N/A', startTime: '00:00', endTime: '00:00' }],
+      }));
+
+      return { groups: formattedGroups, total };
     } catch (error) {
       console.error('Error al obtener los grupos de clase:', error.message);
       throw new InternalServerErrorException(
@@ -227,6 +279,86 @@ export class ClassGroupService {
       );
       throw new InternalServerErrorException(
         'Error al habilitar la asistencia. Por favor, inténtelo de nuevo.',
+      );
+    }
+  }
+
+  async updateClassGroup(id: string, data: any) {
+    const { schedule, ...updateData } = data;
+
+    try {
+      // Verificar si el grupo existe
+      const existingGroup = await this.prisma.classGroup.findUnique({
+        where: { id },
+      });
+
+      if (!existingGroup) {
+        throw new NotFoundException('Grupo de clase no encontrado.');
+      }
+
+      // Serializar el horario si se proporciona
+      if (schedule) {
+        updateData.schedule = JSON.stringify(schedule);
+      }
+
+      // Actualizar el grupo de clase
+      return await this.prisma.classGroup.update({
+        where: { id },
+        data: updateData,
+      });
+    } catch (error) {
+      console.error('Error al actualizar el grupo de clase:', error.message);
+      throw new InternalServerErrorException(
+        'Error al actualizar el grupo de clase.',
+      );
+    }
+  }
+  async getTeacherClassGroupsWithAttendance(teacherId: string) {
+    try {
+      // Verificar si el profesor existe
+      const teacher = await this.prisma.user.findUnique({
+        where: { id: teacherId },
+        include: { teachingGroup: true },
+      });
+
+      if (!teacher || teacher.role !== 'teacher') {
+        throw new NotFoundException('Profesor no encontrado o no válido.');
+      }
+
+      // Obtener los grupos de clase que enseña el profesor
+      const classGroups = await this.prisma.classGroup.findMany({
+        where: { teacherId },
+        include: {
+          students: true, // Estudiantes inscritos en el grupo
+          attendances: {
+            include: { user: true }, // Relación con los estudiantes y sus datos
+          },
+        },
+      });
+
+      // Formatear los datos
+      return classGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        students: group.students.map((student) => ({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+        })),
+        attendance: group.attendances.map((attendance) => ({
+          studentName: attendance.user.name,
+          studentEmail: attendance.user.email,
+          attendedAt: attendance.attendedAt,
+          status: attendance.status,
+        })),
+      }));
+    } catch (error) {
+      console.error(
+        'Error al obtener los grupos de clase y asistencias del profesor:',
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        'Error inesperado al obtener los grupos de clase y asistencias. Por favor, inténtelo de nuevo.',
       );
     }
   }

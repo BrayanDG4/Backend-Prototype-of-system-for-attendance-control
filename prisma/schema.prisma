@@ -14,12 +14,15 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  role      Role     @default(student) // Usar enum para roles
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String? // Nuevo campo para el teléfono
+  address      String? // Nuevo campo para la dirección
+  profileImage String? // Imagen de perfil opcional
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  role         Role     @default(student) // Usar enum para roles
 
   // Relación con los grupos a los que el usuario pertenece como estudiante
   classGroups ClassGroup[] @relation("StudentClassGroups")
@@ -34,14 +37,15 @@ model User {
 model ClassGroup {
   id                String       @id @default(uuid())
   name              String
+  room              String       @default("Desconocido") // Campo con valor predeterminado
   accessCode        String       @unique
-  schedule          String
+  schedule          String // JSON serializado para los horarios
   teacherId         String?      @unique
   teacher           User?        @relation("TeacherClassGroup", fields: [teacherId], references: [id])
   students          User[]       @relation("StudentClassGroups")
   attendances       Attendance[]
-  attendanceEnabled Boolean      @default(false) // Nuevo campo para habilitar asistencia
-  attendanceEndsAt  DateTime? // Nuevo campo para la duración de la asistencia
+  attendanceEnabled Boolean      @default(false) // Campo para habilitar asistencia
+  attendanceEndsAt  DateTime? // Campo para definir duración de la asistencia
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 }

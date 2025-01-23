@@ -44,62 +44,85 @@ export class StatisticsService {
 
   // Estadísticas para un profesor específico
   async getTeacherStatistics(teacherId: string) {
-    try {
-      const teacher = await this.prisma.user.findUnique({
-        where: { id: teacherId },
-      });
+    // Verificar si el profesor existe y tiene el rol adecuado
+    const teacher = await this.prisma.user.findUnique({
+      where: { id: teacherId },
+    });
 
-      if (!teacher || teacher.role !== 'teacher') {
-        throw new NotFoundException('El profesor no existe o no es válido.');
-      }
-
-      const groups = await this.prisma.classGroup.findMany({
-        where: { teacherId },
-        include: { attendances: true },
-      });
-
-      if (groups.length === 0) {
-        return {
-          totalAttendance: 0,
-          totalAbsences: 0,
-          attendanceRate: 0,
-          groupStats: [],
-          message: 'El profesor no tiene grupos asignados.',
-        };
-      }
-
-      const totalAttendance = groups.reduce(
-        (sum, group) =>
-          sum + group.attendances.filter((a) => a.status === 'Present').length,
-        0,
-      );
-      const totalAbsences = groups.reduce(
-        (sum, group) =>
-          sum + group.attendances.filter((a) => a.status === 'Absent').length,
-        0,
-      );
-      const attendanceRate =
-        totalAttendance / (totalAttendance + totalAbsences) || 0;
-
-      const groupStats = groups.map((group) => ({
-        groupName: group.name,
-        totalAttendance: group.attendances.filter((a) => a.status === 'Present')
-          .length,
-        totalAbsences: group.attendances.filter((a) => a.status === 'Absent')
-          .length,
-      }));
-
-      return {
-        totalAttendance,
-        totalAbsences,
-        attendanceRate: Math.round(attendanceRate * 100),
-        groupStats,
-      };
-    } catch {
-      throw new InternalServerErrorException(
-        'Error al obtener las estadísticas del profesor.',
-      );
+    if (!teacher || teacher.role !== 'teacher') {
+      throw new NotFoundException('El profesor no existe o no es válido.');
     }
+
+    // Obtener los grupos del profesor con asistencias incluidas
+    const groups = await this.prisma.classGroup.findMany({
+      where: { teacherId },
+      include: {
+        attendances: {
+          include: { user: true }, // Incluimos el usuario para los nombres en asistencias recientes
+        },
+      },
+    });
+
+    // Calcular estadísticas
+    const totalAttendance = groups.reduce(
+      (sum, group) =>
+        sum + group.attendances.filter((a) => a.status === 'Present').length,
+      0,
+    );
+
+    const todayAttendance = groups.reduce(
+      (sum, group) =>
+        sum +
+        group.attendances.filter(
+          (a) =>
+            a.status === 'Present' &&
+            a.attendedAt >= new Date(new Date().setHours(0, 0, 0, 0)),
+        ).length,
+      0,
+    );
+
+    const totalAbsences = groups.reduce(
+      (sum, group) =>
+        sum + group.attendances.filter((a) => a.status === 'Absent').length,
+      0,
+    );
+
+    const attendanceRate =
+      totalAttendance / (totalAttendance + totalAbsences) || 0;
+
+    // Agrupación mensual de asistencias
+    const monthlySummary = groups
+      .flatMap((group) => group.attendances)
+      .reduce(
+        (summary, attendance) => {
+          const month = attendance.attendedAt.getMonth(); // 0 = Enero, 1 = Febrero, etc.
+          summary[month] = summary[month] || 0;
+          if (attendance.status === 'Present') summary[month]++;
+          return summary;
+        },
+        {} as Record<number, number>,
+      );
+
+    // Asistencias recientes (5 registros más recientes)
+    const recentAttendances = groups
+      .flatMap((group) =>
+        group.attendances.map((a) => ({
+          studentName: a.user.name,
+          date: a.attendedAt,
+          status: a.status,
+        })),
+      )
+      .sort((a, b) => b.date.getTime() - a.date.getTime()) // Ordenar por fecha descendente
+      .slice(0, 5);
+
+    return {
+      totalAttendance,
+      todayAttendance,
+      totalAbsences,
+      attendanceRate: Math.round(attendanceRate * 100),
+      monthlySummary,
+      recentAttendances,
+    };
   }
 
   // src/services/statistics/statistics.service.ts

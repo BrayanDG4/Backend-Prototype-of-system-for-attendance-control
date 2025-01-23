@@ -35,10 +35,27 @@ export class UserController {
   @Patch(':id/profile')
   async updateUserProfile(
     @Param('id') userId: string,
-    @Body() body: { name?: string; email?: string; extraData?: any },
+    @Body()
+    body: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      profileImage?: string;
+    },
   ) {
     try {
       return await this.userService.updateUserProfile(userId, body);
+    } catch (error) {
+      throw new HttpException(error.message, error.status || 500);
+    }
+  }
+
+  @Get(':id/is-profile-complete')
+  async isProfileComplete(@Param('id') userId: string) {
+    try {
+      const isComplete = await this.userService.isProfileComplete(userId);
+      return { isProfileComplete: isComplete };
     } catch (error) {
       throw new HttpException(error.message, error.status || 500);
     }

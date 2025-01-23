@@ -9,6 +9,7 @@ import {
   HttpException,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ClassGroupService } from '../../services/class-group/class-group.service';
 
@@ -30,9 +31,14 @@ export class ClassGroupController {
   }
 
   @Get()
-  async getClassGroups() {
+  async getClassGroups(
+    @Query('skip') skip: string,
+    @Query('take') take: string,
+  ) {
     try {
-      return await this.classGroupService.getClassGroups();
+      const skipValue = parseInt(skip, 10) || 0;
+      const takeValue = parseInt(take, 10) || 5;
+      return await this.classGroupService.getClassGroups(skipValue, takeValue);
     } catch (error) {
       throw new HttpException(
         error.message,
@@ -120,6 +126,35 @@ export class ClassGroupController {
       return await this.classGroupService.enableAttendance(
         classGroupId,
         body.duration,
+      );
+    } catch (error) {
+      throw new HttpException(
+        error.message,
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  async updateClassGroup(@Param('id') id: string, @Body() body: any) {
+    try {
+      return await this.classGroupService.updateClassGroup(id, body);
+    } catch (error) {
+      throw new HttpException(
+        error.message,
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('teacher/:teacherId/attendance')
+  async getTeacherClassGroupsWithAttendance(
+    @Param('teacherId') teacherId: string,
+  ) {
+    try {
+      return await this.classGroupService.getTeacherClassGroupsWithAttendance(
+        teacherId,
       );
     } catch (error) {
       throw new HttpException(
