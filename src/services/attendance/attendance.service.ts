@@ -10,7 +10,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class AttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async registerAttendance(classGroupId: string, studentId: string) {
+  async registerAttendance(
+    classGroupId: string,
+    studentId: string,
+    date: string,
+  ) {
     try {
       const classGroup = await this.prisma.classGroup.findUnique({
         where: { id: classGroupId },
@@ -26,33 +30,26 @@ export class AttendanceService {
         );
       }
 
-      const now = new Date();
-      if (classGroup.attendanceEndsAt && now > classGroup.attendanceEndsAt) {
-        throw new BadRequestException(
-          'El tiempo para registrar la asistencia ha expirado.',
-        );
-      }
+      const attendanceDate = new Date(date);
+      const startOfDay = new Date(attendanceDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(attendanceDate.setHours(23, 59, 59, 999));
 
-      const student = await this.prisma.user.findUnique({
-        where: { id: studentId },
-      });
-
-      if (!student || student.role !== 'student') {
-        throw new BadRequestException(
-          'Usuario no válido o no es un estudiante.',
-        );
-      }
-
-      // Validar si el estudiante ya registró asistencia
+      // Validar si el estudiante ya registró asistencia en el mismo día
       const existingAttendance = await this.prisma.attendance.findFirst({
         where: {
           userId: studentId,
           classGroupId,
+          attendedAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
         },
       });
 
       if (existingAttendance) {
-        throw new BadRequestException('La asistencia ya fue registrada.');
+        throw new BadRequestException(
+          'La asistencia ya fue registrada para este día.',
+        );
       }
 
       // Registrar la asistencia
@@ -60,6 +57,7 @@ export class AttendanceService {
         data: {
           userId: studentId,
           classGroupId,
+          attendedAt: attendanceDate,
           status: 'Present',
         },
       });
@@ -69,7 +67,7 @@ export class AttendanceService {
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error; // Propagar excepciones controladas
+        throw error;
       }
       throw new InternalServerErrorException(
         'Error inesperado al registrar la asistencia. Por favor, inténtelo de nuevo.',

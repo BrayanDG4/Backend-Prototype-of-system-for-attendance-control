@@ -15,21 +15,22 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Post('register')
-  @HttpCode(HttpStatus.CREATED) // Especificar que se retorna 201 en creación exitosa
+  @HttpCode(HttpStatus.CREATED)
   async registerAttendance(
-    @Body() body: { classGroupId: string; studentId: string },
+    @Body() body: { classGroupId: string; studentId: string; date: string },
   ) {
-    const { classGroupId, studentId } = body;
+    const { classGroupId, studentId, date } = body;
 
-    if (!classGroupId || !studentId) {
+    if (!classGroupId || !studentId || !date) {
       throw new BadRequestException(
-        'Se requieren classGroupId y studentId para registrar la asistencia.',
+        'Se requieren classGroupId, studentId y date para registrar la asistencia.',
       );
     }
 
     return await this.attendanceService.registerAttendance(
       classGroupId,
       studentId,
+      date,
     );
   }
 

@@ -77,23 +77,48 @@ export class ClassGroupService {
 
   async getClassGroups(skip: number, take: number) {
     try {
-      // Obtener los grupos con paginación
+      // Obtener los grupos con paginación y sus relaciones
       const groups = await this.prisma.classGroup.findMany({
         skip,
         take,
-        include: { teacher: true },
+        include: {
+          teacher: true, // Incluir la relación con el profesor
+          students: true, // Incluir los estudiantes para calcular el total
+        },
       });
 
-      // Contar el total de registros
+      // Contar el total de registros para paginación
       const total = await this.prisma.classGroup.count();
 
       // Validar y deserializar el campo schedule
-      const formattedGroups = groups.map((group) => ({
-        ...group,
-        schedule: this.isValidJSON(group.schedule)
-          ? JSON.parse(group.schedule)
-          : [{ day: 'N/A', startTime: '00:00', endTime: '00:00' }],
-      }));
+      const formattedGroups = groups.map((group) => {
+        let parsedSchedule;
+        try {
+          parsedSchedule = JSON.parse(group.schedule); // Intentar parsear el JSON
+        } catch (error) {
+          console.error(
+            `Error al parsear el horario para el grupo ${group.id}: ${error.message}`,
+          );
+          parsedSchedule = [
+            { day: 'N/A', startTime: '00:00', endTime: '00:00' },
+          ];
+        }
+
+        return {
+          id: group.id,
+          name: group.name || 'Sin nombre',
+          room: group.room || 'Sin salón',
+          schedule: parsedSchedule,
+          teacher: group.teacher
+            ? {
+                id: group.teacher.id,
+                name: group.teacher.name,
+                email: group.teacher.email,
+              }
+            : null, // Manejar el caso en que no haya profesor asignado
+          totalStudents: group.students.length, // Calcular el total de estudiantes
+        };
+      });
 
       return { groups: formattedGroups, total };
     } catch (error) {
