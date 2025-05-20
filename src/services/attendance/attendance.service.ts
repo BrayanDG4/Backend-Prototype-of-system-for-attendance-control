@@ -110,4 +110,24 @@ export class AttendanceService {
       );
     }
   }
+
+  // src/services/attendance.service.ts
+  async getByDateRange(classGroupId: string, startDate: Date, endDate: Date) {
+    const utcStart = new Date(startDate);
+    utcStart.setUTCHours(0, 0, 0, 0);
+
+    const utcEnd = new Date(endDate);
+    utcEnd.setUTCHours(23, 59, 59, 999);
+
+    return this.prisma.attendance.findMany({
+      where: {
+        classGroupId,
+        attendedAt: {
+          gte: utcStart,
+          lte: utcEnd,
+        },
+      },
+      include: { user: true },
+    });
+  }
 }

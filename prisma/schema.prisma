@@ -15,7 +15,9 @@ enum Role {
 
 model User {
   id           String   @id @default(uuid())
+  documentId   String?  @unique // Nuevo campo para el documento de identidad
   name         String
+  gender       String? // Nuevo campo para el género
   email        String   @unique
   phone        String? // Nuevo campo para el teléfono
   address      String? // Nuevo campo para la dirección

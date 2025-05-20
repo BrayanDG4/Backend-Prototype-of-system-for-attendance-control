@@ -109,6 +109,7 @@ export class ClassGroupService {
           name: group.name || 'Sin nombre',
           room: group.room || 'Sin salón',
           schedule: parsedSchedule,
+          accessCode: group.accessCode,
           teacher: group.teacher
             ? {
                 id: group.teacher.id,
@@ -117,6 +118,8 @@ export class ClassGroupService {
               }
             : null, // Manejar el caso en que no haya profesor asignado
           totalStudents: group.students.length, // Calcular el total de estudiantes
+          attendanceEnabled: group.attendanceEnabled, // ✅ NUEVO
+          attendanceEndsAt: group.attendanceEndsAt?.toISOString(), // ✅ NUEVO
         };
       });
 
@@ -386,5 +389,52 @@ export class ClassGroupService {
         'Error inesperado al obtener los grupos de clase y asistencias. Por favor, inténtelo de nuevo.',
       );
     }
+  }
+
+  // src/services/class-group/class-group.service.ts
+  async getReportData(classGroupId: string, startDate: Date, endDate: Date) {
+    // Configurar fechas en UTC sin usar split
+    const utcStartDate = new Date(startDate);
+    utcStartDate.setUTCHours(0, 0, 0, 0);
+
+    const utcEndDate = new Date(endDate);
+    utcEndDate.setUTCHours(23, 59, 59, 999);
+
+    const classGroup = await this.prisma.classGroup.findUnique({
+      where: { id: classGroupId },
+      include: {
+        students: {
+          include: {
+            attendances: {
+              where: {
+                attendedAt: {
+                  gte: utcStartDate, // Usar fechas ya convertidas
+                  lte: utcEndDate,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!classGroup) throw new NotFoundException('Grupo no encontrado');
+    if (classGroup.students.length === 0)
+      throw new NotFoundException('El grupo no tiene estudiantes');
+
+    return {
+      name: classGroup.name || 'Grupo sin nombre', // Corregir nombre de propiedad
+      totalStudents: classGroup.students.length, // Agregar total
+      startDate: utcStartDate.toISOString().split('T')[0],
+      endDate: utcEndDate.toISOString().split('T')[0],
+      students: classGroup.students.map((student: any) => ({
+        name: student.name?.trim() || 'Estudiante no identificado',
+        gender: student.gender, // Nuevo campo
+        present: student.attendances.filter((a: any) => a.status === 'Present')
+          .length,
+        absent: student.attendances.filter((a: any) => a.status === 'Absent')
+          .length,
+      })),
+    };
   }
 }
