@@ -30,8 +30,10 @@
     "axios": "^1.7.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "pdfmake": "^0.2.18",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },

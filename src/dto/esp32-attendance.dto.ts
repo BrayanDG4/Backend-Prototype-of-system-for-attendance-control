@@ -9,4 +9,7 @@ export class Esp32AttendanceDto {
 
   @IsISO8601()
   timestamp: string;
+
+  @IsString()
+  token: string; // Este es el campo que contendrá la firmaA del QR
 }
