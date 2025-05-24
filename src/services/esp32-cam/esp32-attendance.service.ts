@@ -14,10 +14,10 @@ export class Esp32AttendanceService {
     email: string;
     classGroupId: string;
     timestamp: string;
-  }) {
+  }): Promise<{ success: boolean; message: string }> {
     const { email, classGroupId, timestamp } = data;
 
-    // 🔍 Verificar que el grupo existe
+    // 1️⃣ Verificar que el grupo existe
     const classGroup = await this.prisma.classGroup.findUnique({
       where: { id: classGroupId },
     });
@@ -26,7 +26,7 @@ export class Esp32AttendanceService {
       throw new NotFoundException('Grupo de clase no encontrado.');
     }
 
-    // 🕒 Verificar que la asistencia está habilitada y vigente
+    // 2️⃣ Verificar si la asistencia está habilitada
     const now = new Date();
     if (
       !classGroup.attendanceEnabled ||
@@ -38,7 +38,7 @@ export class Esp32AttendanceService {
       );
     }
 
-    // 🧑‍🎓 Buscar al estudiante y validar pertenencia al grupo
+    // 3️⃣ Verificar si el estudiante pertenece al grupo
     const student = await this.prisma.user.findUnique({
       where: { email },
       include: { classGroups: true },
@@ -48,11 +48,10 @@ export class Esp32AttendanceService {
       throw new BadRequestException('El estudiante no pertenece a este grupo.');
     }
 
-    // 📅 Usar la fecha del QR escaneado para evitar duplicados del mismo día
+    // 4️⃣ Validar que no haya asistencia ya registrada ese día
     const scannedDate = new Date(timestamp);
     const dayStart = new Date(scannedDate);
     dayStart.setHours(0, 0, 0, 0);
-
     const dayEnd = new Date(scannedDate);
     dayEnd.setHours(23, 59, 59, 999);
 
@@ -73,7 +72,7 @@ export class Esp32AttendanceService {
       );
     }
 
-    // ✅ Registrar la asistencia
+    // 5️⃣ Registrar asistencia
     await this.prisma.attendance.create({
       data: {
         userId: student.id,
@@ -83,6 +82,9 @@ export class Esp32AttendanceService {
       },
     });
 
-    return { success: true, message: 'Asistencia registrada con éxito.' };
+    return {
+      success: true,
+      message: 'Asistencia registrada con éxito.',
+    };
   }
 }

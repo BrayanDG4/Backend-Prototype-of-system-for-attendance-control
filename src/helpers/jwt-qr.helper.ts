@@ -1,4 +1,3 @@
-// src/helpers/jwt-qr.helper.ts
 import jwt from 'jsonwebtoken';
 
 const SECRET_KEY = process.env.JWT_SECRET || 'qr_secret';
@@ -22,9 +21,15 @@ export function verifyQRToken(token: string): {
   classGroupId: string;
   timestamp: string;
 } {
-  return jwt.verify(token, SECRET_KEY) as {
-    email: string;
-    classGroupId: string;
-    timestamp: string;
+  const decoded = jwt.verify(token, SECRET_KEY) as any;
+
+  if (!decoded.email || !decoded.classGroupId || !decoded.timestamp) {
+    throw new Error('Token QR incompleto.');
+  }
+
+  return {
+    email: decoded.email,
+    classGroupId: decoded.classGroupId,
+    timestamp: decoded.timestamp,
   };
 }
