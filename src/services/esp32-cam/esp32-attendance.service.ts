@@ -5,10 +5,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { MailService } from '../../services/mail/mail.service'; // Asegúrate de que la ruta sea correcta
 
 @Injectable()
 export class Esp32AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService, // ✅ inyectar servicio de correo
+  ) {}
 
   async validateAndRecordFromToken(
     tokenId: string,
@@ -104,6 +108,20 @@ export class Esp32AttendanceService {
         status: 'Present',
       },
     });
+
+    // ✅ 6️⃣ Enviar correo de confirmación
+    try {
+      const studentName = student.name;
+      const groupName = classGroup.name;
+
+      await this.mailService.sendAttendanceConfirmation(
+        email,
+        studentName,
+        groupName,
+      );
+    } catch (error) {
+      console.warn('⚠️ No se pudo enviar el correo:', error.message);
+    }
 
     return {
       success: true,

@@ -9,6 +9,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { Esp32AttendanceModule } from './modules/esp32-cam/esp32-attendance.module';
 import { QRCodeModule } from './modules/qr-code/qr-code.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { QRCodeModule } from './modules/qr-code/qr-code.module';
     StatisticsModule,
     Esp32AttendanceModule,
     QRCodeModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
