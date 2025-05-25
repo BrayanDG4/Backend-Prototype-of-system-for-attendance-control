@@ -2,34 +2,31 @@ import jwt from 'jsonwebtoken';
 
 const SECRET_KEY = process.env.JWT_SECRET || 'qr_secret';
 
-/**
- * Genera un token JWT válido por 10 minutos para el registro de asistencia por QR.
- */
 export function generateQRToken(payload: {
   email: string;
   classGroupId: string;
   timestamp: string;
 }): string {
-  return jwt.sign(payload, SECRET_KEY, { expiresIn: '10m' });
+  const token = jwt.sign(payload, SECRET_KEY, { expiresIn: '10m' });
+
+  // Modificación compatible con GM66
+  return token.replace(/\./g, 'X').replace(/=/g, 'Z').replace(/\+/g, 'Y');
 }
 
-/**
- * Verifica y decodifica un token QR JWT.
- */
-export function verifyQRToken(token: string): {
+export function verifyQRToken(modifiedToken: string): {
   email: string;
   classGroupId: string;
   timestamp: string;
 } {
-  const decoded = jwt.verify(token, SECRET_KEY) as any;
+  // Restaurar el JWT original antes de verificar
+  const originalToken = modifiedToken
+    .replace(/X/g, '.')
+    .replace(/Z/g, '=')
+    .replace(/Y/g, '+');
 
-  if (!decoded.email || !decoded.classGroupId || !decoded.timestamp) {
-    throw new Error('Token QR incompleto.');
-  }
-
-  return {
-    email: decoded.email,
-    classGroupId: decoded.classGroupId,
-    timestamp: decoded.timestamp,
+  return jwt.verify(originalToken, SECRET_KEY) as {
+    email: string;
+    classGroupId: string;
+    timestamp: string;
   };
 }

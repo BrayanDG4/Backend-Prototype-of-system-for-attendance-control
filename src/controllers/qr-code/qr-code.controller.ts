@@ -7,7 +7,7 @@ export class QRCodeController {
   constructor(private readonly qrCodeService: QRCodeService) {}
 
   @Post('generate')
-  generateToken(@Body() body: { email: string; classGroupId: string }) {
+  generate(@Body() body: { email: string; classGroupId: string }) {
     return this.qrCodeService.generateToken(body.email, body.classGroupId);
   }
 }

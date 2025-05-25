@@ -10,6 +10,29 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class Esp32AttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async validateAndRecordFromToken(
+    tokenId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const token = await this.prisma.qrToken.findUnique({
+      where: { id: tokenId },
+    });
+
+    if (!token) {
+      throw new BadRequestException('❌ Token inválido o no registrado.');
+    }
+
+    const now = new Date();
+    if (now > token.expiresAt) {
+      throw new BadRequestException('❌ El token ha expirado.');
+    }
+
+    return this.recordAttendance({
+      email: token.email,
+      classGroupId: token.classGroupId,
+      timestamp: token.timestamp.toISOString(),
+    });
+  }
+
   async recordAttendance(data: {
     email: string;
     classGroupId: string;

@@ -65,3 +65,12 @@ model Attendance {
   // Relación con el grupo al que pertenece esta asistencia
   classGroup ClassGroup @relation(fields: [classGroupId], references: [id])
 }
+
+model QrToken {
+  id          String   @id @default(cuid())
+  email       String
+  classGroupId String
+  timestamp   DateTime
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}

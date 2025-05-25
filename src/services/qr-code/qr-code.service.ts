@@ -1,15 +1,33 @@
+// src/services/qr-code/qr-code.service.ts
 import { Injectable } from '@nestjs/common';
-import { generateQRToken } from 'src/helpers/jwt-qr.helper';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class QRCodeService {
-  generateToken(email: string, classGroupId: string) {
-    const timestamp = new Date().toISOString();
+  constructor(private readonly prisma: PrismaService) {}
 
-    const token = generateQRToken({ email, classGroupId, timestamp });
+  async generateToken(email: string, classGroupId: string) {
+    const timestamp = new Date();
+    // const expiresAt = new Date(timestamp.getTime() + 10 * 60 * 1000); // 10 minutos
+    const expiresAt = new Date(timestamp.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 días
 
-    // ✅ Nuevo formato para el lector GM66
-    const qrString = `C${email}G${classGroupId}F${timestamp}T${token}`;
+    const tokenId = (
+      Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
+    ).slice(0, 16);
+
+    // 💾 GUARDADO EN LA BASE DE DATOS
+    await this.prisma.qrToken.create({
+      data: {
+        id: tokenId,
+        email,
+        classGroupId,
+        timestamp,
+        expiresAt,
+      },
+    });
+
+    // 🧩 Formato final
+    const qrString = `C${email}G${classGroupId}F${timestamp.toISOString()}T${tokenId}`;
 
     return { qrString };
   }
